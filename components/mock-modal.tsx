@@ -22,12 +22,12 @@ export function MockModal({ children, isOpen, title, message, onClose }: MockMod
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
         >
-          <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            className="relative w-full max-w-md rounded-[28px] border border-emerald-300/20 bg-[#09100d]/95 p-6 shadow-[0_0_0_1px_rgba(117,255,143,0.14),0_18px_60px_rgba(0,0,0,0.5)]"
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 10, scale: 0.98 }}
+          className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[24px] border border-emerald-300/20 bg-[#09100d]/95 p-4 shadow-[0_0_0_1px_rgba(117,255,143,0.14),0_18px_60px_rgba(0,0,0,0.5)] sm:rounded-[28px] sm:p-6"
+        >
             <button
               type="button"
               onClick={onClose}
@@ -37,7 +37,7 @@ export function MockModal({ children, isOpen, title, message, onClose }: MockMod
             </button>
 
             <p className="text-sm uppercase tracking-[0.32em] text-emerald-300/60">Mock action</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">{title}</h2>
+            <h2 className="mt-3 pr-10 text-xl font-semibold text-white sm:text-2xl">{title}</h2>
             {message ? <p className="mt-3 text-sm leading-7 text-white/65">{message}</p> : null}
             {children ? <div className="mt-4">{children}</div> : null}
 

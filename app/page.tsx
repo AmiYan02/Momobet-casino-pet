@@ -44,6 +44,11 @@ function prettifyPhase(phase: string) {
   return "Idle";
 }
 
+function getCasinoDeltaStorageKey(address?: string, chainId?: number) {
+  if (!address || !chainId) return null;
+  return `momobet.casinoDelta.${chainId}.${address.toLowerCase()}`;
+}
+
 export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState<GameCategory>("All Games");
   const [isHomeExpanded, setIsHomeExpanded] = useState(true);
@@ -54,8 +59,9 @@ export default function HomePage() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isFungalCrashOpen, setIsFungalCrashOpen] = useState(false);
   const [depositSuggestedAmount, setDepositSuggestedAmount] = useState<string | null>(null);
-  const [crashSessionCasinoBalance, setCrashSessionCasinoBalance] = useState(0);
-  const [crashSessionPendingBets, setCrashSessionPendingBets] = useState(0);
+  const [casinoBalanceDelta, setCasinoBalanceDelta] = useState(0);
+  const [isCasinoBalanceHydrated, setIsCasinoBalanceHydrated] = useState(false);
+  const [pendingBets, setPendingBets] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
   const previousAddressRef = useRef<string | undefined>(undefined);
   const previousConnectedRef = useRef(false);
@@ -70,6 +76,14 @@ export default function HomePage() {
     if (activeCategory === "All Games") return mockGames;
     return mockGames.filter((game) => game.categories.includes(activeCategory));
   }, [activeCategory]);
+  const casinoBalanceStorageKey = useMemo(
+    () => getCasinoDeltaStorageKey(wallet.address, wallet.chainId),
+    [wallet.address, wallet.chainId],
+  );
+  const casinoBalance = useMemo(
+    () => Math.max(0, momo.casinoMomoBalance + casinoBalanceDelta),
+    [casinoBalanceDelta, momo.casinoMomoBalance],
+  );
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -114,10 +128,24 @@ export default function HomePage() {
   }, [momo.txState.action, momo.txState.hash, momo.txState.phase]);
 
   useEffect(() => {
-    if (!isFungalCrashOpen) return;
-    setCrashSessionCasinoBalance(momo.casinoMomoBalance);
-    setCrashSessionPendingBets(0);
-  }, [isFungalCrashOpen, momo.casinoMomoBalance]);
+    if (!casinoBalanceStorageKey) {
+      setCasinoBalanceDelta(0);
+      setIsCasinoBalanceHydrated(true);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    const raw = window.localStorage.getItem(casinoBalanceStorageKey);
+    const parsed = raw ? Number(raw) : 0;
+    setCasinoBalanceDelta(Number.isFinite(parsed) ? parsed : 0);
+    setIsCasinoBalanceHydrated(true);
+  }, [casinoBalanceStorageKey]);
+
+  useEffect(() => {
+    if (!isCasinoBalanceHydrated || !casinoBalanceStorageKey || typeof window === "undefined") return;
+    window.localStorage.setItem(casinoBalanceStorageKey, JSON.stringify(casinoBalanceDelta));
+  }, [casinoBalanceDelta, casinoBalanceStorageKey, isCasinoBalanceHydrated]);
 
   if (!auth.isReady || !history.isReady || !demoCasino.isReady) {
     return (
@@ -303,7 +331,10 @@ export default function HomePage() {
     if (values.currency !== "MOMO") return "USDT mock withdrawals are coming soon. MOMO is supported for this phase.";
     const amount = Number(values.amount);
     if (amount <= 0 || Number.isNaN(amount)) return "Enter a valid withdrawal amount greater than 0.";
-    if (amount > momo.casinoMomoBalance) return "Insufficient on-chain casino balance.";
+    if (amount > casinoBalance) return "Insufficient MOMO Casino Balance.";
+    if (amount > momo.casinoMomoBalance) {
+      return `Only ${momo.casinoMomoBalance.toFixed(2)} MOMO is currently withdrawable on-chain. Demo game gains are not withdrawable yet.`;
+    }
 
     const result = await momo.withdraw(values.amount);
     if (result.error || !result.hash) return result.error ?? "Withdraw failed.";
@@ -324,8 +355,6 @@ export default function HomePage() {
 
   const handlePlay = (game: GameItem) => {
     if (game.title === "Fungal Crash") {
-      setCrashSessionCasinoBalance(momo.casinoMomoBalance);
-      setCrashSessionPendingBets(0);
       setIsFungalCrashOpen(true);
       return;
     }
@@ -337,14 +366,14 @@ export default function HomePage() {
     if (momo.casinoMomoBalance <= 0) {
       return "Deposit MOMO to Casino first";
     }
-    if (crashSessionCasinoBalance <= 0) {
+    if (casinoBalance <= 0) {
       return "Deposit MOMO to Casino first";
     }
-    if (betAmount > crashSessionCasinoBalance) return "Bet amount exceeds available Demo Session Balance.";
-    if (crashSessionPendingBets > 0) return "Active round already in progress.";
+    if (betAmount > casinoBalance) return "Insufficient MOMO Casino Balance";
+    if (pendingBets > 0) return "Active round already in progress.";
 
-    setCrashSessionCasinoBalance((current) => Math.max(0, current - betAmount));
-    setCrashSessionPendingBets((current) => current + betAmount);
+    setCasinoBalanceDelta((current) => current - betAmount);
+    setPendingBets((current) => current + betAmount);
     return null;
   };
 
@@ -356,8 +385,8 @@ export default function HomePage() {
     status: "Won" | "Lost";
     cashoutMultiplier?: number;
   }) => {
-    setCrashSessionCasinoBalance((current) => current + result.payout);
-    setCrashSessionPendingBets((current) => Math.max(0, current - result.betAmount));
+    setCasinoBalanceDelta((current) => current + result.payout);
+    setPendingBets((current) => Math.max(0, current - result.betAmount));
     demoCasino.appendCrashRound(
       result.cashoutMultiplier ?? result.crashMultiplier,
       result.status === "Won" ? "User cashout" : "Crash",
@@ -398,8 +427,9 @@ export default function HomePage() {
     setIsDepositOpen(false);
     setIsFungalCrashOpen(false);
     setDepositSuggestedAmount(null);
-    setCrashSessionCasinoBalance(0);
-    setCrashSessionPendingBets(0);
+    setCasinoBalanceDelta(0);
+    setPendingBets(0);
+    setIsCasinoBalanceHydrated(false);
     showToast("User logged out.");
   };
 
@@ -434,7 +464,7 @@ export default function HomePage() {
             onWithdrawClick={openWithdrawModal}
             profileName={auth.profileName}
             wallet={{
-              casinoMomoBalance: momo.casinoMomoBalance,
+              casinoMomoBalance: casinoBalance,
               hasDeployedContracts: momo.hasDeployedContracts,
               isBalanceLoading: wallet.isBalanceLoading,
               isConnected: wallet.isConnected,
@@ -443,7 +473,7 @@ export default function HomePage() {
               isLoggedIn: auth.isLoggedIn,
               isWrongNetwork: wallet.isWrongNetwork,
               networkName: wallet.networkName,
-              pendingBets: crashSessionPendingBets,
+              pendingBets: pendingBets,
               shortAddress: wallet.shortAddress,
               walletMomoBalance: momo.walletMomoBalance,
               walletBalance: wallet.walletBalance,
@@ -451,7 +481,7 @@ export default function HomePage() {
             }}
           />
 
-          <div className="relative z-10 px-4 pb-14 pt-24 sm:px-6 lg:px-8">
+          <div className="relative z-10 px-4 pb-14 pt-[10.5rem] sm:px-6 sm:pt-[11rem] md:pt-24 lg:px-8">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
               {wallet.isConnected && wallet.isWrongNetwork ? (
                 <WrongNetworkBanner
@@ -481,7 +511,7 @@ export default function HomePage() {
                 etherscanTokenUrl={momo.hasDeployedContracts ? `https://sepolia.etherscan.io/token/${momo.tokenAddress}` : null}
                 isClaimDisabled={!momo.canClaim || momo.txState.phase === "waiting-wallet" || momo.txState.phase === "confirming"}
                 isDeployed={momo.hasDeployedContracts}
-                momoCasinoBalance={momo.casinoMomoBalance}
+                momoCasinoBalance={casinoBalance}
                 momoWalletBalance={momo.walletMomoBalance}
                 onClaim={handleClaim}
                 profileName={auth.profileName}
@@ -528,7 +558,7 @@ export default function HomePage() {
       />
 
       <WithdrawModal
-        availableCasinoBalance={momo.casinoMomoBalance}
+        availableCasinoBalance={casinoBalance}
         isOpen={isWithdrawOpen}
         onClose={() => setIsWithdrawOpen(false)}
         onSubmit={handleWithdrawSubmit}
@@ -543,8 +573,8 @@ export default function HomePage() {
       />
 
       <FungalCrashModal
-        demoSessionBalance={crashSessionCasinoBalance}
-        demoSessionPendingBets={crashSessionPendingBets}
+        casinoBalance={casinoBalance}
+        pendingBets={pendingBets}
         isOpen={isFungalCrashOpen}
         onAttemptClose={handleAttemptCloseCrash}
         onClose={() => setIsFungalCrashOpen(false)}
@@ -557,7 +587,6 @@ export default function HomePage() {
         }}
         onStartRound={handleStartFungalCrashRound}
         profileName={auth.profileName || wallet.shortAddress}
-        realCasinoBalance={momo.casinoMomoBalance}
         realWalletBalance={momo.walletMomoBalance}
         recentCrashRounds={demoCasino.recentCrashRounds}
       />

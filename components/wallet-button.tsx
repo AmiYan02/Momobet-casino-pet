@@ -21,14 +21,14 @@ export function WalletButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+      className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition sm:px-4 ${
         isConnected
           ? "border-emerald-300/20 bg-white/5 text-white/85 hover:border-emerald-300/35 hover:bg-white/10"
           : "border-emerald-200/30 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.35)] hover:brightness-110"
       }`}
     >
       <Wallet className={`h-4 w-4 ${isConnected ? "text-emerald-200" : "text-emerald-950"}`} />
-      <span>{isPending ? "Connecting..." : label}</span>
+      <span className="max-w-[120px] truncate sm:max-w-[160px]">{isPending ? "Connecting..." : label}</span>
       {isConnected ? (
         <span
           className={`h-2.5 w-2.5 rounded-full ${

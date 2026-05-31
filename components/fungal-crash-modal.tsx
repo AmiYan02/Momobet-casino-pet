@@ -18,8 +18,7 @@ type FeedEvent = {
 };
 
 type FungalCrashModalProps = {
-  demoSessionBalance: number;
-  demoSessionPendingBets: number;
+  casinoBalance: number;
   isOpen: boolean;
   onAttemptClose: (isRoundActive: boolean) => boolean;
   onClose: () => void;
@@ -33,9 +32,9 @@ type FungalCrashModalProps = {
   }) => void;
   onQuickDeposit: (amount: number) => void;
   onRequestCustomDeposit: (amount: string) => void;
+  pendingBets: number;
   onStartRound: (betAmount: number) => string | null;
   profileName: string;
-  realCasinoBalance: number;
   realWalletBalance: number;
   recentCrashRounds: CrashRoundRecord[];
 };
@@ -73,17 +72,16 @@ function createDemoEvent(player?: string): FeedEvent {
 }
 
 export function FungalCrashModal({
-  demoSessionBalance,
-  demoSessionPendingBets,
+  casinoBalance,
   isOpen,
   onAttemptClose,
   onClose,
   onFinishRound,
   onQuickDeposit,
   onRequestCustomDeposit,
+  pendingBets,
   onStartRound,
   profileName,
-  realCasinoBalance,
   realWalletBalance,
   recentCrashRounds,
 }: FungalCrashModalProps) {
@@ -165,7 +163,9 @@ export function FungalCrashModal({
   const flyProgress = useMemo(() => Math.min(100, (multiplier - 1) * 20), [multiplier]);
   const selectedBalanceLabel = "Casino Balance";
   const isRoundActive = roundStatus === "Flying";
-  const showQuickDeposit = realCasinoBalance <= 0 && realWalletBalance > 0;
+  const showQuickDeposit = casinoBalance <= 0 && realWalletBalance > 0;
+  const isBetBlocked = casinoBalance <= 0;
+  const hasInsufficientCasinoBalance = Number(betAmount || "0") > casinoBalance && casinoBalance > 0;
 
   const recentRoundPillClasses: Record<CrashRoundRecord["status"], string> = {
     Crash: "border-rose-300/15 bg-rose-300/10 text-rose-100/80",
@@ -279,11 +279,11 @@ export function FungalCrashModal({
       setBetAmount((Number(betAmount) / 2).toFixed(2));
       return;
     }
-    setBetAmount((demoSessionBalance / 2).toFixed(2));
+    setBetAmount((casinoBalance / 2).toFixed(2));
   };
 
   const handleMax = () => {
-    setBetAmount(demoSessionBalance.toFixed(2));
+    setBetAmount(casinoBalance.toFixed(2));
   };
 
   return (
@@ -296,16 +296,16 @@ export function FungalCrashModal({
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-3 backdrop-blur-md md:p-6"
         >
           <motion.section
-            initial={{ opacity: 0, y: 22, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 14, scale: 0.98 }}
-            className="relative flex h-[85vh] w-[90vw] max-w-[1440px] flex-col overflow-hidden rounded-[34px] border border-emerald-300/20 bg-[#07100c]/95 shadow-[0_0_0_1px_rgba(117,255,143,0.12),0_24px_100px_rgba(0,0,0,0.55)]"
+          initial={{ opacity: 0, y: 22, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 14, scale: 0.98 }}
+            className="relative flex h-[92vh] w-full max-w-[1440px] flex-col overflow-hidden rounded-[26px] border border-emerald-300/20 bg-[#07100c]/95 shadow-[0_0_0_1px_rgba(117,255,143,0.12),0_24px_100px_rgba(0,0,0,0.55)] sm:h-[88vh] sm:w-[94vw] sm:rounded-[30px] xl:w-[90vw]"
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(117,255,143,0.14),transparent_28%),radial-gradient(circle_at_70%_25%,rgba(117,255,143,0.08),transparent_20%)]" />
-            <div className="relative z-10 flex items-start justify-between gap-4 border-b border-emerald-300/10 px-5 py-4 md:px-7">
-              <div>
+            <div className="relative z-10 flex flex-col gap-4 border-b border-emerald-300/10 px-4 py-4 sm:px-5 md:flex-row md:items-start md:justify-between md:px-7">
+              <div className="min-w-0">
                 <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/60">Testnet mock mode</p>
-                <h2 className="mt-2 text-3xl font-semibold text-white">Fungal Crash</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Fungal Crash</h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-white/60">
                     House edge: 3%
@@ -319,14 +319,14 @@ export function FungalCrashModal({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsMuted((current) => !current)}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition hover:text-white"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition hover:text-white"
                 >
                   {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  Sound
+                  <span className="hidden sm:inline">Sound</span>
                 </button>
                 <button
                   type="button"
@@ -344,10 +344,10 @@ export function FungalCrashModal({
               </div>
             </div>
 
-            <div className="relative z-10 grid flex-1 gap-4 overflow-hidden p-4 md:grid-cols-[1.45fr_0.95fr] md:p-6">
+            <div className="relative z-10 grid flex-1 gap-4 overflow-y-auto p-3 sm:p-4 md:grid-cols-[1.45fr_0.95fr] md:overflow-hidden md:p-6">
               <div className="grid min-h-0 gap-4">
                 <div
-                  className={`relative min-h-[340px] overflow-hidden rounded-[28px] border p-5 transition md:min-h-[420px] ${
+                  className={`relative min-h-[260px] overflow-hidden rounded-[22px] border p-4 transition sm:min-h-[320px] sm:rounded-[28px] sm:p-5 md:min-h-[420px] ${
                     roundStatus === "Crashed"
                       ? "border-rose-400/25 bg-rose-500/10 shadow-[0_0_40px_rgba(244,63,94,0.16)]"
                       : roundStatus === "Cashed out"
@@ -358,36 +358,36 @@ export function FungalCrashModal({
                   <div className="absolute inset-0 bg-[linear-gradient(rgba(117,255,143,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(117,255,143,0.09)_1px,transparent_1px)] bg-[size:42px_42px]" />
                   <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-emerald-400/10 to-transparent" />
                   <div className="relative flex h-full flex-col justify-between">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <p className="text-sm uppercase tracking-[0.24em] text-emerald-300/55">Multiplier</p>
-                        <div className={`mt-2 text-5xl font-semibold tracking-tight md:text-7xl ${
+                        <div className={`mt-2 text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl ${
                           roundStatus === "Crashed" ? "text-rose-200" : "text-emerald-200"
                         }`}>
                           {multiplier.toFixed(2)}x
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right text-sm">
+                      <div className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-left text-sm sm:w-auto sm:text-right">
                         <p className="text-white/50">Round status</p>
                         <p className="mt-1 font-medium text-white">{roundStatus}</p>
                       </div>
                     </div>
 
-                    <div className="relative h-[250px] md:h-[320px]">
+                    <div className="relative h-[180px] sm:h-[240px] md:h-[320px]">
                       <div
-                        className="absolute bottom-10 left-8 h-[3px] origin-left rounded-full bg-gradient-to-r from-emerald-300/35 via-emerald-200 to-lime-300 shadow-[0_0_24px_rgba(117,255,143,0.28)] transition-all duration-150"
+                        className="absolute bottom-10 left-4 h-[3px] origin-left rounded-full bg-gradient-to-r from-emerald-300/35 via-emerald-200 to-lime-300 shadow-[0_0_24px_rgba(117,255,143,0.28)] transition-all duration-150 sm:left-8"
                         style={{
-                          width: `${28 + flyProgress * 3.2}px`,
-                          transform: `translateY(-${flyProgress * 2.2}px)`,
+                          width: `${24 + flyProgress * 2.4}px`,
+                          transform: `translateY(-${flyProgress * 1.6}px)`,
                         }}
                       />
                       <div
-                        className="absolute bottom-7 left-6 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-300/15 text-emerald-100 shadow-[0_0_28px_rgba(117,255,143,0.35)] transition-all duration-150"
+                        className="absolute bottom-7 left-2 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-300/15 text-emerald-100 shadow-[0_0_28px_rgba(117,255,143,0.35)] transition-all duration-150 sm:left-6 sm:h-14 sm:w-14"
                         style={{
-                          transform: `translate(${flyProgress * 3.3}px, -${flyProgress * 2.2}px)`,
+                          transform: `translate(${flyProgress * 2.5}px, -${flyProgress * 1.6}px)`,
                         }}
                       >
-                        <Rocket className="h-6 w-6 rotate-45" />
+                        <Rocket className="h-5 w-5 rotate-45 sm:h-6 sm:w-6" />
                       </div>
                     </div>
 
@@ -419,7 +419,7 @@ export function FungalCrashModal({
                             exit={{ opacity: 0 }}
                             className="rounded-2xl border border-emerald-300/10 bg-black/20 px-4 py-3 text-sm"
                           >
-                            <p className="font-medium text-emerald-50">
+                            <p className="font-medium leading-6 text-emerald-50">
                               {item.player} {item.status.toLowerCase()} {item.payout.toFixed(2)} MOMO at {item.multiplier.toFixed(2)}x
                             </p>
                             <p className="mt-1 text-white/45">
@@ -450,15 +450,15 @@ export function FungalCrashModal({
                 </div>
               </div>
 
-              <div className="min-h-0 overflow-y-auto fancy-scrollbar">
-                <form onSubmit={handleStartRound} className="space-y-4 rounded-[28px] border border-emerald-400/15 bg-white/5 p-5">
+              <div className="min-h-0 md:overflow-y-auto md:pr-1 md:fancy-scrollbar">
+                <form onSubmit={handleStartRound} className="space-y-4 rounded-[24px] border border-emerald-400/15 bg-white/5 p-4 sm:rounded-[28px] sm:p-5">
                   <div className="rounded-[22px] border border-white/10 bg-black/20 p-4">
                     <p className="text-sm uppercase tracking-[0.22em] text-emerald-300/60">Balance source</p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-emerald-100/70">Real Casino Balance</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{realCasinoBalance.toFixed(2)} MOMO</p>
-                        <p className="mt-2 text-xs text-emerald-50/65">Read-only balance from the Sepolia vault</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-emerald-100/70">Source: Shared MOMO Casino Balance</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{casinoBalance.toFixed(2)} MOMO</p>
+                        <p className="mt-2 text-xs text-emerald-50/65">This is the playable in-app casino balance used by Fungal Crash.</p>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-xs uppercase tracking-[0.18em] text-white/55">Wallet Balance</p>
@@ -470,12 +470,13 @@ export function FungalCrashModal({
                     </div>
                     <div className="mt-3 grid gap-2 text-sm text-emerald-100/65 sm:grid-cols-2">
                       <p>Selected balance: {selectedBalanceLabel}</p>
-                      <p>Demo session balance: {demoSessionBalance.toFixed(2)} MOMO</p>
-                      <p>Demo pending bets: {demoSessionPendingBets.toFixed(2)} MOMO</p>
+                      <p>MOMO Casino Balance: {casinoBalance.toFixed(2)} MOMO</p>
+                      <p>Pending bets: {pendingBets.toFixed(2)} MOMO</p>
+                      <p>Source: Shared MOMO Casino Balance</p>
                     </div>
                   </div>
 
-                  {realCasinoBalance <= 0 ? (
+                  {casinoBalance <= 0 ? (
                     <div className="rounded-[22px] border border-emerald-300/15 bg-emerald-300/10 p-4">
                       <p className="font-medium text-emerald-50">Deposit MOMO to Casino first</p>
                       <p className="mt-2 text-sm text-emerald-50/65">
@@ -517,7 +518,7 @@ export function FungalCrashModal({
                     />
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {quickButtons.map((item) => (
                       <button
                         key={item}
@@ -532,12 +533,12 @@ export function FungalCrashModal({
                       type="button"
                       onClick={handleHalf}
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
-                          >
-                            1/2
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleMax}
+                    >
+                      1/2
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleMax}
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
                     >
                       Max
@@ -545,31 +546,37 @@ export function FungalCrashModal({
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm">
-                    <p className="text-white/55">Available balance</p>
-                    <p className="mt-1 font-medium text-emerald-100">{demoSessionBalance.toFixed(2)} MOMO</p>
+                    <p className="text-white/55">MOMO Casino Balance</p>
+                    <p className="mt-1 font-medium text-emerald-100">{casinoBalance.toFixed(2)} MOMO</p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
                     Round status: <span className="font-medium text-emerald-100">{roundStatus}</span>
                   </div>
 
-                  {realCasinoBalance <= 0 && realWalletBalance <= 0 ? (
+                  {casinoBalance <= 0 && realWalletBalance <= 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
                       Claim MOMO test chips first to start playing.
                     </div>
                   ) : null}
 
-                    {error ? (
-                      <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
-                        {error}
-                      </div>
-                    ) : null}
+                  {hasInsufficientCasinoBalance ? (
+                    <div className="rounded-2xl border border-amber-300/15 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+                      Insufficient MOMO Casino Balance
+                    </div>
+                  ) : null}
 
-                  <div className="flex flex-wrap gap-3">
+                  {error ? (
+                    <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="submit"
-                      disabled={isRoundActive}
-                      className="rounded-full border border-emerald-200/30 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-5 py-3 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isRoundActive || isBetBlocked || hasInsufficientCasinoBalance}
+                      className="min-h-12 rounded-full border border-emerald-200/30 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-5 py-3 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Start Round
                     </button>
@@ -577,7 +584,7 @@ export function FungalCrashModal({
                       type="button"
                       onClick={handleCashOut}
                       disabled={!isRoundActive}
-                      className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      className="min-h-12 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Cash Out
                     </button>

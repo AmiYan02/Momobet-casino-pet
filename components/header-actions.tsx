@@ -45,7 +45,7 @@ function DropdownShell({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 8 }}
-      className="absolute right-0 top-[calc(100%+12px)] min-w-[250px] rounded-2xl border border-emerald-400/15 bg-[#0b120f]/95 p-3 shadow-glow backdrop-blur-xl"
+      className="absolute right-0 top-[calc(100%+12px)] w-[min(320px,calc(100vw-1.5rem))] rounded-2xl border border-emerald-400/15 bg-[#0b120f]/95 p-3 shadow-glow backdrop-blur-xl sm:min-w-[250px] sm:w-auto"
     >
       {children}
     </motion.div>
@@ -78,11 +78,11 @@ export function HeaderActions({
   }, []);
 
   return (
-    <div className="fixed right-0 top-0 z-40 w-full md:left-[260px] md:w-auto">
-      <div className="flex justify-end px-4 py-4 sm:px-6 lg:px-8">
+    <div className="fixed right-0 top-[88px] z-40 w-full md:left-[260px] md:top-0 md:w-auto">
+      <div className="flex justify-end px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
         <div
           ref={containerRef}
-          className="flex flex-wrap items-center gap-3 rounded-[24px] border border-emerald-400/12 bg-[#07100c]/75 p-2 shadow-card backdrop-blur-2xl"
+          className="flex w-full flex-wrap items-center justify-end gap-2 rounded-[20px] border border-emerald-400/12 bg-[#07100c]/75 p-2 shadow-card backdrop-blur-2xl sm:w-auto sm:gap-3 sm:rounded-[24px]"
         >
           <WalletButton
             isConnected={wallet.isConnected}
@@ -96,10 +96,10 @@ export function HeaderActions({
             <button
               type="button"
               onClick={() => setOpenMenu((value) => (value === "balance" ? null : "balance"))}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/15 bg-white/5 px-4 py-2 text-sm text-white/85 transition hover:border-emerald-300/30 hover:bg-white/10"
+              className="inline-flex min-w-0 items-center gap-2 rounded-full border border-emerald-400/15 bg-white/5 px-3 py-2 text-sm text-white/85 transition hover:border-emerald-300/30 hover:bg-white/10 sm:px-4"
             >
               <Wallet className="h-4 w-4 text-emerald-200" />
-              <span>{wallet.isConnected ? `Balance: ${wallet.walletBalance}` : "Balance"}</span>
+              <span className="truncate">{wallet.isConnected ? `Balance: ${wallet.walletBalance}` : "Balance"}</span>
               <ChevronDown className="h-4 w-4 text-white/55" />
             </button>
 
@@ -128,7 +128,7 @@ export function HeaderActions({
           <button
             type="button"
             onClick={onDepositClick}
-            className="rounded-full border border-emerald-200/30 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-5 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.35)] transition hover:brightness-110 active:scale-[0.98]"
+            className="min-h-10 rounded-full border border-emerald-200/30 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-4 py-2.5 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.35)] transition hover:brightness-110 active:scale-[0.98] sm:px-5"
           >
             Deposit
           </button>
@@ -136,7 +136,7 @@ export function HeaderActions({
           <button
             type="button"
             onClick={onWithdrawClick}
-            className="rounded-full border border-emerald-300/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-300/35 hover:bg-emerald-300/10 hover:text-white"
+            className="min-h-10 rounded-full border border-emerald-300/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-300/35 hover:bg-emerald-300/10 hover:text-white sm:px-5"
           >
             Withdraw
           </button>
@@ -145,10 +145,10 @@ export function HeaderActions({
             <button
               type="button"
               onClick={() => setOpenMenu((value) => (value === "profile" ? null : "profile"))}
-              className="flex items-center gap-2 rounded-full border border-emerald-400/15 bg-white/5 px-3 py-2 text-white/80 transition hover:border-emerald-300/30 hover:bg-white/10"
+              className="flex min-h-10 items-center gap-2 rounded-full border border-emerald-400/15 bg-white/5 px-3 py-2 text-white/80 transition hover:border-emerald-300/30 hover:bg-white/10"
             >
               <CircleUserRound className="h-5 w-5" />
-              <span className="hidden text-sm font-medium text-emerald-100 sm:inline">
+              <span className="hidden max-w-[96px] truncate text-sm font-medium text-emerald-100 sm:inline">
                 {profileName}
               </span>
             </button>
