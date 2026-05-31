@@ -54,6 +54,8 @@ export default function HomePage() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isFungalCrashOpen, setIsFungalCrashOpen] = useState(false);
   const [depositSuggestedAmount, setDepositSuggestedAmount] = useState<string | null>(null);
+  const [crashSessionCasinoBalance, setCrashSessionCasinoBalance] = useState(0);
+  const [crashSessionPendingBets, setCrashSessionPendingBets] = useState(0);
   const toastTimerRef = useRef<number | null>(null);
   const previousAddressRef = useRef<string | undefined>(undefined);
   const previousConnectedRef = useRef(false);
@@ -110,6 +112,12 @@ export default function HomePage() {
       showToast(`${verb}.`);
     }
   }, [momo.txState.action, momo.txState.hash, momo.txState.phase]);
+
+  useEffect(() => {
+    if (!isFungalCrashOpen) return;
+    setCrashSessionCasinoBalance(momo.casinoMomoBalance);
+    setCrashSessionPendingBets(0);
+  }, [isFungalCrashOpen, momo.casinoMomoBalance]);
 
   if (!auth.isReady || !history.isReady || !demoCasino.isReady) {
     return (
@@ -179,7 +187,7 @@ export default function HomePage() {
     return true;
   };
 
-  const openDepositModal = () => {
+  const openDepositModal = (suggestedAmount?: string | null) => {
     if (
       !requireWalletAndSepolia({
         noWallet: "Connect MetaMask before opening the deposit flow.",
@@ -190,7 +198,7 @@ export default function HomePage() {
       return;
     }
 
-    setDepositSuggestedAmount(null);
+    setDepositSuggestedAmount(suggestedAmount ?? null);
     setIsDepositOpen(true);
   };
 
@@ -206,6 +214,12 @@ export default function HomePage() {
     }
 
     setIsWithdrawOpen(true);
+  };
+
+  const openCrashDepositShortcut = (amount: string) => {
+    setDepositSuggestedAmount(amount);
+    setIsFungalCrashOpen(false);
+    openDepositModal(amount);
   };
 
   const handleClaim = async () => {
@@ -310,6 +324,8 @@ export default function HomePage() {
 
   const handlePlay = (game: GameItem) => {
     if (game.title === "Fungal Crash") {
+      setCrashSessionCasinoBalance(momo.casinoMomoBalance);
+      setCrashSessionPendingBets(0);
       setIsFungalCrashOpen(true);
       return;
     }
@@ -318,16 +334,17 @@ export default function HomePage() {
 
   const handleStartFungalCrashRound = (betAmount: number) => {
     if (betAmount <= 0 || Number.isNaN(betAmount)) return "Enter a valid bet amount.";
-    if (demoCasino.balances.casinoMomo <= 0 && demoCasino.balances.walletMomo > 0) {
-      return "Your demo MOMO is in Wallet Balance. Move tokens to Demo Casino Balance before playing.";
+    if (momo.casinoMomoBalance <= 0) {
+      return "Deposit MOMO to Casino first";
     }
-    if (demoCasino.balances.casinoMomo <= 0 && demoCasino.balances.walletMomo <= 0) {
-      return "Demo mode - game logic is not on-chain yet. Use your saved demo balance to play.";
+    if (crashSessionCasinoBalance <= 0) {
+      return "Deposit MOMO to Casino first";
     }
-    if (betAmount > demoCasino.balances.casinoMomo) return "Bet amount exceeds available Demo Casino Balance.";
-    if (demoCasino.balances.pendingBets > 0) return "Active round already in progress.";
+    if (betAmount > crashSessionCasinoBalance) return "Bet amount exceeds available Demo Session Balance.";
+    if (crashSessionPendingBets > 0) return "Active round already in progress.";
 
-    demoCasino.startPendingBet(betAmount);
+    setCrashSessionCasinoBalance((current) => Math.max(0, current - betAmount));
+    setCrashSessionPendingBets((current) => current + betAmount);
     return null;
   };
 
@@ -339,7 +356,8 @@ export default function HomePage() {
     status: "Won" | "Lost";
     cashoutMultiplier?: number;
   }) => {
-    demoCasino.settleBet(result.betAmount, result.payout);
+    setCrashSessionCasinoBalance((current) => current + result.payout);
+    setCrashSessionPendingBets((current) => Math.max(0, current - result.betAmount));
     demoCasino.appendCrashRound(
       result.cashoutMultiplier ?? result.crashMultiplier,
       result.status === "Won" ? "User cashout" : "Crash",
@@ -380,6 +398,8 @@ export default function HomePage() {
     setIsDepositOpen(false);
     setIsFungalCrashOpen(false);
     setDepositSuggestedAmount(null);
+    setCrashSessionCasinoBalance(0);
+    setCrashSessionPendingBets(0);
     showToast("User logged out.");
   };
 
@@ -423,7 +443,7 @@ export default function HomePage() {
               isLoggedIn: auth.isLoggedIn,
               isWrongNetwork: wallet.isWrongNetwork,
               networkName: wallet.networkName,
-              pendingBets: demoCasino.balances.pendingBets,
+              pendingBets: crashSessionPendingBets,
               shortAddress: wallet.shortAddress,
               walletMomoBalance: momo.walletMomoBalance,
               walletBalance: wallet.walletBalance,
@@ -523,40 +543,22 @@ export default function HomePage() {
       />
 
       <FungalCrashModal
-        availableCasinoBalance={demoCasino.balances.casinoMomo}
-        availableWalletBalance={demoCasino.balances.walletMomo}
+        demoSessionBalance={crashSessionCasinoBalance}
+        demoSessionPendingBets={crashSessionPendingBets}
         isOpen={isFungalCrashOpen}
         onAttemptClose={handleAttemptCloseCrash}
         onClose={() => setIsFungalCrashOpen(false)}
         onFinishRound={handleFinishFungalCrashRound}
         onQuickDeposit={(amount) => {
-          if (amount > demoCasino.balances.walletMomo) {
-            showToast("Not enough demo Wallet Balance to move that amount.");
-            return;
-          }
-          demoCasino.depositMomo(amount);
-          history.addTransaction({
-            type: "Deposit",
-            currency: "MOMO",
-            amount: amount.toFixed(2),
-            network: "Demo mode",
-            status: "Mock",
-            txHash: `demo-${Date.now()}`,
-            isMock: true,
-            details: ["Source: Fungal Crash quick deposit", "Demo mode - not on-chain"],
-          });
-          showToast(`Moved ${amount.toFixed(2)} demo MOMO to Demo Casino Balance.`);
+          openCrashDepositShortcut(amount.toFixed(2));
         }}
         onRequestCustomDeposit={(amount) => {
-          setDepositSuggestedAmount(amount);
-          setIsFungalCrashOpen(false);
-          setModal({
-            title: "Demo mode notice",
-            message: "Fungal Crash uses demo-only balances until the game contract is implemented. Real on-chain deposit remains available from the header.",
-          });
+          openCrashDepositShortcut(amount);
         }}
         onStartRound={handleStartFungalCrashRound}
         profileName={auth.profileName || wallet.shortAddress}
+        realCasinoBalance={momo.casinoMomoBalance}
+        realWalletBalance={momo.walletMomoBalance}
         recentCrashRounds={demoCasino.recentCrashRounds}
       />
 

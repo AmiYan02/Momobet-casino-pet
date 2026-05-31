@@ -18,8 +18,8 @@ type FeedEvent = {
 };
 
 type FungalCrashModalProps = {
-  availableCasinoBalance: number;
-  availableWalletBalance: number;
+  demoSessionBalance: number;
+  demoSessionPendingBets: number;
   isOpen: boolean;
   onAttemptClose: (isRoundActive: boolean) => boolean;
   onClose: () => void;
@@ -35,6 +35,8 @@ type FungalCrashModalProps = {
   onRequestCustomDeposit: (amount: string) => void;
   onStartRound: (betAmount: number) => string | null;
   profileName: string;
+  realCasinoBalance: number;
+  realWalletBalance: number;
   recentCrashRounds: CrashRoundRecord[];
 };
 
@@ -71,8 +73,8 @@ function createDemoEvent(player?: string): FeedEvent {
 }
 
 export function FungalCrashModal({
-  availableCasinoBalance,
-  availableWalletBalance,
+  demoSessionBalance,
+  demoSessionPendingBets,
   isOpen,
   onAttemptClose,
   onClose,
@@ -81,6 +83,8 @@ export function FungalCrashModal({
   onRequestCustomDeposit,
   onStartRound,
   profileName,
+  realCasinoBalance,
+  realWalletBalance,
   recentCrashRounds,
 }: FungalCrashModalProps) {
   const [betAmount, setBetAmount] = useState("");
@@ -161,7 +165,7 @@ export function FungalCrashModal({
   const flyProgress = useMemo(() => Math.min(100, (multiplier - 1) * 20), [multiplier]);
   const selectedBalanceLabel = "Casino Balance";
   const isRoundActive = roundStatus === "Flying";
-  const showQuickDeposit = availableCasinoBalance <= 0 && availableWalletBalance > 0;
+  const showQuickDeposit = realCasinoBalance <= 0 && realWalletBalance > 0;
 
   const recentRoundPillClasses: Record<CrashRoundRecord["status"], string> = {
     Crash: "border-rose-300/15 bg-rose-300/10 text-rose-100/80",
@@ -275,11 +279,11 @@ export function FungalCrashModal({
       setBetAmount((Number(betAmount) / 2).toFixed(2));
       return;
     }
-    setBetAmount((availableCasinoBalance / 2).toFixed(2));
+    setBetAmount((demoSessionBalance / 2).toFixed(2));
   };
 
   const handleMax = () => {
-    setBetAmount(availableCasinoBalance.toFixed(2));
+    setBetAmount(demoSessionBalance.toFixed(2));
   };
 
   return (
@@ -308,6 +312,9 @@ export function FungalCrashModal({
                   </span>
                   <span className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-emerald-100/85">
                     Demo live feed
+                  </span>
+                  <span className="rounded-full border border-amber-200/15 bg-amber-200/10 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-amber-100/85">
+                    Demo mode - game logic is not on-chain yet
                   </span>
                 </div>
               </div>
@@ -449,38 +456,46 @@ export function FungalCrashModal({
                     <p className="text-sm uppercase tracking-[0.22em] text-emerald-300/60">Balance source</p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-emerald-100/70">Casino Balance</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{availableCasinoBalance.toFixed(2)} MOMO</p>
-                        <p className="mt-2 text-xs text-emerald-50/65">Default and recommended</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-emerald-100/70">Real Casino Balance</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{realCasinoBalance.toFixed(2)} MOMO</p>
+                        <p className="mt-2 text-xs text-emerald-50/65">Read-only balance from the Sepolia vault</p>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                         <p className="text-xs uppercase tracking-[0.18em] text-white/55">Wallet Balance</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{availableWalletBalance.toFixed(2)} MOMO</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{realWalletBalance.toFixed(2)} MOMO</p>
                         <p className="mt-2 text-xs text-white/45">
                           For real on-chain flow, tokens must be deposited to Casino Balance first. Wallet Balance betting is mock-only for demo.
                         </p>
                       </div>
                     </div>
-                    <p className="mt-3 text-sm text-emerald-100/65">Selected balance: {selectedBalanceLabel}</p>
+                    <div className="mt-3 grid gap-2 text-sm text-emerald-100/65 sm:grid-cols-2">
+                      <p>Selected balance: {selectedBalanceLabel}</p>
+                      <p>Demo session balance: {demoSessionBalance.toFixed(2)} MOMO</p>
+                      <p>Demo pending bets: {demoSessionPendingBets.toFixed(2)} MOMO</p>
+                    </div>
                   </div>
 
-                  {showQuickDeposit ? (
+                  {realCasinoBalance <= 0 ? (
                     <div className="rounded-[22px] border border-emerald-300/15 bg-emerald-300/10 p-4">
-                      <p className="font-medium text-emerald-50">You have {availableWalletBalance.toFixed(2)} MOMO in Wallet Balance</p>
+                      <p className="font-medium text-emerald-50">Deposit MOMO to Casino first</p>
                       <p className="mt-2 text-sm text-emerald-50/65">
-                        Your MOMO is in Wallet Balance. Move tokens to Casino Balance before playing.
+                        {showQuickDeposit
+                          ? `You have ${realWalletBalance.toFixed(2)} MOMO in Wallet Balance. Move tokens to Casino Balance before playing.`
+                          : "Your real vault balance is 0 MOMO. Deposit on-chain before starting a demo round."}
                       </p>
                       <div className="mt-4 flex flex-wrap gap-3">
+                        {showQuickDeposit ? (
+                          <button
+                            type="button"
+                            onClick={() => onQuickDeposit(Math.min(100, realWalletBalance))}
+                            className="rounded-full border border-emerald-200/25 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.22)] transition hover:brightness-110"
+                          >
+                            Move {Math.min(100, realWalletBalance).toFixed(2)} MOMO to Casino
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          onClick={() => onQuickDeposit(Math.min(100, availableWalletBalance))}
-                          className="rounded-full border border-emerald-200/25 bg-gradient-to-r from-lime-300 via-emerald-300 to-green-400 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-[0_0_24px_rgba(117,255,143,0.22)] transition hover:brightness-110"
-                        >
-                          Move 100 MOMO to Casino
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRequestCustomDeposit(availableWalletBalance > 100 ? "250" : availableWalletBalance.toFixed(2))}
+                          onClick={() => onRequestCustomDeposit(realWalletBalance > 100 ? "250" : Math.max(realWalletBalance, 100).toFixed(2))}
                           className="rounded-full border border-emerald-300/15 bg-white/5 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/10 hover:text-white"
                         >
                           Deposit custom amount
@@ -517,12 +532,12 @@ export function FungalCrashModal({
                       type="button"
                       onClick={handleHalf}
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
-                    >
-                      1/2
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleMax}
+                          >
+                            1/2
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleMax}
                       className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white"
                     >
                       Max
@@ -531,24 +546,24 @@ export function FungalCrashModal({
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm">
                     <p className="text-white/55">Available balance</p>
-                    <p className="mt-1 font-medium text-emerald-100">{availableCasinoBalance.toFixed(2)} MOMO</p>
+                    <p className="mt-1 font-medium text-emerald-100">{demoSessionBalance.toFixed(2)} MOMO</p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60">
                     Round status: <span className="font-medium text-emerald-100">{roundStatus}</span>
                   </div>
 
-                  {availableCasinoBalance <= 0 && availableWalletBalance <= 0 ? (
+                  {realCasinoBalance <= 0 && realWalletBalance <= 0 ? (
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
                       Claim MOMO test chips first to start playing.
                     </div>
                   ) : null}
 
-                  {error ? (
-                    <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
-                      {error}
-                    </div>
-                  ) : null}
+                    {error ? (
+                      <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+                        {error}
+                      </div>
+                    ) : null}
 
                   <div className="flex flex-wrap gap-3">
                     <button
