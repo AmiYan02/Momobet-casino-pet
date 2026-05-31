@@ -50,6 +50,7 @@ export function useWalletSession() {
   const networkName = isConnected ? getNetworkName(chainId) : "Not connected";
 
   const walletBalance = balanceData?.formatted ? `${formatBalance(balanceData.formatted)} ${balanceData.symbol}` : "--";
+  const walletBalanceValue = balanceData?.formatted ? Number(balanceData.formatted) : 0;
   const shortAddress = shortenAddress(address);
 
   useEffect(() => {
@@ -115,6 +116,7 @@ export function useWalletSession() {
     shortAddress,
     switchToSepolia,
     walletBalance,
+    walletBalanceValue,
     walletSymbol: balanceData?.symbol ?? "ETH",
   };
 }

@@ -1,17 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import type { Address, Hex } from "viem";
-import { formatUnits, parseUnits } from "viem";
+import { decodeEventLog, formatEther, formatUnits, parseEther, parseUnits } from "viem";
 import { supportedChain } from "@/lib/wagmi";
 import { parseWalletError } from "@/lib/wallet";
 import {
   CASINO_VAULT_ABI,
   CASINO_VAULT_ADDRESS,
+  CREDITS_PER_ETH,
   hasDeployedContracts,
-  MOMO_TOKEN_ABI,
-  MOMO_TOKEN_ADDRESS,
 } from "@/src/lib/contracts";
 
 export type TxPhase =
@@ -23,10 +22,18 @@ export type TxPhase =
   | "failed";
 
 export type TxState = {
-  action: "claim" | "approve" | "deposit" | "withdraw" | null;
+  action: "deposit" | "withdraw" | "play" | null;
   error: string | null;
   hash: Hex | null;
   phase: TxPhase;
+};
+
+export type PlayOutcome = {
+  betAmount: number;
+  payout: number;
+  randomValue: number;
+  txHash: Hex;
+  won: boolean;
 };
 
 function formatMomo(value?: bigint) {
@@ -38,14 +45,22 @@ function getFriendlyError(error: unknown) {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("insufficient funds")) {
-    return "Insufficient Sepolia ETH for gas.";
+    return "Insufficient Sepolia ETH for gas or deposit.";
   }
 
-  if (normalized.includes("claim cooldown")) {
-    return "Claim cooldown is still active.";
+  if (normalized.includes("liquidity")) {
+    return "Contract has insufficient ETH liquidity for this withdrawal or payout.";
   }
 
   return message;
+}
+
+export function ethToMomoCredits(ethAmount: number) {
+  return ethAmount * CREDITS_PER_ETH;
+}
+
+export function momoCreditsToEth(momoAmount: number) {
+  return momoAmount / CREDITS_PER_ETH;
 }
 
 export function useOnchainMomoState(address?: Address) {
@@ -60,70 +75,45 @@ export function useOnchainMomoState(address?: Address) {
 
   const canRead = Boolean(address && hasDeployedContracts);
 
-  const { data: contractReads, refetch: refetchOnchainBalances } = useReadContracts({
-    allowFailure: false,
-    contracts: canRead
-      ? [
-          {
-            abi: MOMO_TOKEN_ABI,
-            address: MOMO_TOKEN_ADDRESS as Address,
-            functionName: "balanceOf",
-            args: [address as Address],
-          },
-          {
-            abi: CASINO_VAULT_ABI,
-            address: CASINO_VAULT_ADDRESS as Address,
-            functionName: "balanceOf",
-            args: [address as Address],
-          },
-          {
-            abi: MOMO_TOKEN_ABI,
-            address: MOMO_TOKEN_ADDRESS as Address,
-            functionName: "allowance",
-            args: [address as Address, CASINO_VAULT_ADDRESS as Address],
-          },
-        ]
-      : [],
+  const { data: casinoBalanceRaw = BigInt(0), refetch: refetchCasinoBalance } = useReadContract({
+    abi: CASINO_VAULT_ABI,
+    address: hasDeployedContracts ? (CASINO_VAULT_ADDRESS as Address) : undefined,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    chainId: supportedChain.id,
     query: {
       enabled: canRead,
       refetchInterval: 10000,
     },
   });
 
-  const { data: rawLastClaimAt, refetch: refetchClaimWindow } = useReadContract({
-    abi: MOMO_TOKEN_ABI,
-    address: hasDeployedContracts ? (MOMO_TOKEN_ADDRESS as Address) : undefined,
-    functionName: "lastClaimAt",
-    args: address ? [address] : undefined,
+  const { data: contractEthLiquidityRaw = BigInt(0), refetch: refetchLiquidity } = useReadContract({
+    abi: CASINO_VAULT_ABI,
+    address: hasDeployedContracts ? (CASINO_VAULT_ADDRESS as Address) : undefined,
+    functionName: "creditsToEth",
+    args: [casinoBalanceRaw],
     chainId: supportedChain.id,
     query: {
-      enabled: canRead,
-      refetchInterval: 5000,
+      enabled: hasDeployedContracts,
+      refetchInterval: 10000,
     },
   });
 
-  const walletMomoRaw = (contractReads?.[0] as bigint | undefined) ?? BigInt(0);
-  const casinoMomoRaw = (contractReads?.[1] as bigint | undefined) ?? BigInt(0);
-  const allowanceRaw = (contractReads?.[2] as bigint | undefined) ?? BigInt(0);
-  const lastClaimAt = Number(rawLastClaimAt ?? BigInt(0));
-  const claimCooldownRemainingMs = lastClaimAt
-    ? Math.max(0, (lastClaimAt + 60) * 1000 - Date.now())
-    : 0;
-
-  const walletMomoBalance = useMemo(() => formatMomo(walletMomoRaw), [walletMomoRaw]);
-  const casinoMomoBalance = useMemo(() => formatMomo(casinoMomoRaw), [casinoMomoRaw]);
-  const allowance = useMemo(() => formatMomo(allowanceRaw), [allowanceRaw]);
+  const casinoMomoBalance = useMemo(() => formatMomo(casinoBalanceRaw), [casinoBalanceRaw]);
+  const contractEthLiquidity = useMemo(
+    () => Number(formatEther(contractEthLiquidityRaw)),
+    [contractEthLiquidityRaw],
+  );
 
   const refetchAll = async () => {
-    await Promise.all([refetchOnchainBalances(), refetchClaimWindow()]);
+    await Promise.all([refetchCasinoBalance(), refetchLiquidity()]);
   };
 
   const runWrite = async (params: {
     action: NonNullable<TxState["action"]>;
     args?: readonly unknown[];
-    contract: Address;
-    abi: typeof MOMO_TOKEN_ABI | typeof CASINO_VAULT_ABI;
-    functionName: string;
+    functionName: "deposit" | "withdraw" | "play";
+    value?: bigint;
   }) => {
     if (!publicClient) {
       return { error: "Public client unavailable for Sepolia.", hash: null as Hex | null };
@@ -138,11 +128,12 @@ export function useOnchainMomoState(address?: Address) {
       });
 
       const hash = await writeContractAsync({
-        abi: params.abi as any,
-        address: params.contract,
+        abi: CASINO_VAULT_ABI as any,
+        address: CASINO_VAULT_ADDRESS as Address,
         functionName: params.functionName as any,
         args: params.args as any,
         chainId: supportedChain.id,
+        value: params.value,
       });
 
       setTxState({
@@ -152,8 +143,6 @@ export function useOnchainMomoState(address?: Address) {
         phase: "submitted",
       });
 
-      await Promise.resolve();
-
       setTxState({
         action: params.action,
         error: null,
@@ -161,7 +150,7 @@ export function useOnchainMomoState(address?: Address) {
         phase: "confirming",
       });
 
-      await publicClient.waitForTransactionReceipt({ hash });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
       await refetchAll();
 
       setTxState({
@@ -171,7 +160,7 @@ export function useOnchainMomoState(address?: Address) {
         phase: "completed",
       });
 
-      return { error: null, hash };
+      return { error: null, hash, receipt };
     } catch (error) {
       const message = getFriendlyError(error);
       setTxState({
@@ -180,62 +169,83 @@ export function useOnchainMomoState(address?: Address) {
         hash: null,
         phase: "failed",
       });
-      return { error: message, hash: null as Hex | null };
+      return { error: message, hash: null as Hex | null, receipt: null };
     }
   };
 
-  const claim = async () =>
-    runWrite({
-      action: "claim",
-      abi: MOMO_TOKEN_ABI,
-      contract: MOMO_TOKEN_ADDRESS as Address,
-      functionName: "claim",
-    });
-
-  const approve = async (amount: string) =>
-    runWrite({
-      action: "approve",
-      abi: MOMO_TOKEN_ABI,
-      contract: MOMO_TOKEN_ADDRESS as Address,
-      functionName: "approve",
-      args: [CASINO_VAULT_ADDRESS as Address, parseUnits(amount, 18)],
-    });
-
-  const deposit = async (amount: string) =>
+  const deposit = async (amountEth: string) =>
     runWrite({
       action: "deposit",
-      abi: CASINO_VAULT_ABI,
-      contract: CASINO_VAULT_ADDRESS as Address,
       functionName: "deposit",
-      args: [parseUnits(amount, 18)],
+      value: parseEther(amountEth),
     });
 
-  const withdraw = async (amount: string) =>
+  const withdraw = async (amountMomo: string) =>
     runWrite({
       action: "withdraw",
-      abi: CASINO_VAULT_ABI,
-      contract: CASINO_VAULT_ADDRESS as Address,
       functionName: "withdraw",
-      args: [parseUnits(amount, 18)],
+      args: [parseUnits(amountMomo, 18)],
     });
 
+  const play = async (amountMomo: string) => {
+    const result = await runWrite({
+      action: "play",
+      functionName: "play",
+      args: [parseUnits(amountMomo, 18)],
+    });
+
+    if (result.error || !result.hash || !result.receipt) {
+      return { error: result.error ?? "Bet failed.", hash: result.hash, outcome: null as PlayOutcome | null };
+    }
+
+    const gameResolvedLog = result.receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: CASINO_VAULT_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === "GameResolved";
+      } catch {
+        return false;
+      }
+    });
+
+    if (!gameResolvedLog) {
+      return { error: "Game result event not found.", hash: result.hash, outcome: null as PlayOutcome | null };
+    }
+
+    const decoded = decodeEventLog({
+      abi: CASINO_VAULT_ABI,
+      data: gameResolvedLog.data,
+      topics: gameResolvedLog.topics,
+    });
+
+    if (decoded.eventName !== "GameResolved") {
+      return { error: "Unexpected game event returned.", hash: result.hash, outcome: null as PlayOutcome | null };
+    }
+
+    const outcome: PlayOutcome = {
+      betAmount: Number(formatUnits(decoded.args.betAmount, 18)),
+      payout: Number(formatUnits(decoded.args.payout, 18)),
+      randomValue: Number(decoded.args.randomValue),
+      txHash: result.hash,
+      won: decoded.args.won,
+    };
+
+    return { error: null, hash: result.hash, outcome };
+  };
+
   return {
-    allowance,
-    allowanceRaw,
-    canClaim: claimCooldownRemainingMs === 0,
     casinoMomoBalance,
-    casinoMomoRaw,
-    claim,
-    claimCooldownRemainingMs,
+    casinoMomoRaw: casinoBalanceRaw,
+    contractAddress: CASINO_VAULT_ADDRESS,
+    contractEthLiquidity,
     deposit,
     hasDeployedContracts,
+    play,
     refetchAll,
-    tokenAddress: MOMO_TOKEN_ADDRESS,
     txState,
-    vaultAddress: CASINO_VAULT_ADDRESS,
-    walletMomoBalance,
-    walletMomoRaw,
-    approve,
     withdraw,
   };
 }

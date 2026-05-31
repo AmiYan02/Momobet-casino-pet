@@ -29,9 +29,7 @@ type HeaderActionsProps = {
     networkName: string;
     pendingBets: number;
     shortAddress: string;
-    walletMomoBalance: number;
     walletBalance: string;
-    walletSymbol: string;
   };
 };
 
@@ -116,9 +114,7 @@ export function HeaderActions({
                     onHistoryClick={onHistoryClick}
                     onWithdrawClick={onWithdrawClick}
                     pendingBets={wallet.pendingBets}
-                    walletMomoBalance={wallet.walletMomoBalance}
                     walletBalance={wallet.walletBalance}
-                    walletSymbol={wallet.walletSymbol}
                   />
                 </DropdownShell>
               ) : null}

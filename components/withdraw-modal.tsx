@@ -1,18 +1,15 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MockModal } from "@/components/mock-modal";
+import { momoCreditsToEth } from "@/hooks/use-onchain-momo";
 
 type WithdrawModalProps = {
   availableCasinoBalance: number;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (values: {
-    currency: "MOMO" | "USDT";
-    network: "ERC20" | "TRC20";
-    amount: string;
-  }) => Promise<string | null> | string | null;
+  onSubmit: (amountMomo: string) => Promise<string | null> | string | null;
   txHash?: string | null;
   txPhase?: string;
 };
@@ -25,15 +22,15 @@ export function WithdrawModal({
   txHash,
   txPhase,
 }: WithdrawModalProps) {
-  const [currency, setCurrency] = useState<"MOMO" | "USDT">("MOMO");
-  const [network, setNetwork] = useState<"ERC20" | "TRC20">("ERC20");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const expectedEth = useMemo(
+    () => (Number(amount || "0") > 0 ? momoCreditsToEth(Number(amount || "0")) : 0),
+    [amount],
+  );
 
   useEffect(() => {
     if (!isOpen) {
-      setCurrency("MOMO");
-      setNetwork("ERC20");
       setAmount("");
       setError(null);
     }
@@ -42,84 +39,52 @@ export function WithdrawModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!currency) {
-      setError("Select a currency.");
-      return;
-    }
-
-    if (!network) {
-      setError("Select a network.");
-      return;
-    }
-
     if (!amount.trim() || Number(amount) <= 0) {
-      setError("Enter a valid withdrawal amount greater than 0.");
+      setError("Enter a valid MOMO withdrawal amount greater than 0.");
       return;
     }
 
-    const nextError = await onSubmit({
-      currency,
-      network,
-      amount: amount.trim(),
-    });
+    if (Number(amount) > availableCasinoBalance) {
+      setError("MOMO Casino Balance is too low for this withdrawal.");
+      return;
+    }
 
+    const nextError = await onSubmit(amount.trim());
     setError(nextError);
   };
 
   return (
-    <MockModal isOpen={isOpen} title="Withdraw" message="" onClose={onClose}>
+    <MockModal
+      isOpen={isOpen}
+      title="Withdraw to MetaMask"
+      message="Withdraw MOMO casino credits back to Sepolia ETH in your MetaMask wallet. Testnet only."
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-sm text-emerald-100/70">Currency</label>
-            <select
-              value={currency}
-              onChange={(event) => setCurrency(event.target.value as "MOMO" | "USDT")}
-              className="w-full rounded-2xl border border-emerald-400/15 bg-black/20 px-4 py-3 text-white outline-none"
-            >
-              <option value="MOMO">MOMO</option>
-              <option value="USDT">USDT mock</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-emerald-100/70">Network</label>
-            <select
-              value={network}
-              onChange={(event) => setNetwork(event.target.value as "ERC20" | "TRC20")}
-              className="w-full rounded-2xl border border-emerald-400/15 bg-black/20 px-4 py-3 text-white outline-none"
-            >
-              <option value="ERC20">ERC20</option>
-              <option value="TRC20" disabled>
-                TRC20 (Coming soon)
-              </option>
-            </select>
-          </div>
+        <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-sm">
+          <p className="text-white/55">Currency</p>
+          <p className="mt-1 font-medium text-emerald-100">MOMO</p>
         </div>
 
-        <p className="rounded-2xl border border-emerald-400/10 bg-black/20 px-4 py-3 text-sm text-emerald-50/60">
-          TRC20 is shown as a future option. Current testnet flow supports ERC20/Sepolia only.
-        </p>
-
         <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/60">
-          Withdraw sends MOMO back to your connected wallet.
+          Available MOMO Casino Balance: <span className="font-medium text-emerald-100">{availableCasinoBalance.toFixed(2)} MOMO</span>
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-emerald-100/70">Amount</label>
+          <label className="mb-2 block text-sm text-emerald-100/70">Amount (MOMO)</label>
           <input
             type="number"
             min="0"
             step="any"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            placeholder="100"
+            placeholder="500"
             className="w-full rounded-2xl border border-emerald-400/15 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-emerald-300/30"
           />
         </div>
 
         <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/60">
-          Available Casino Balance: <span className="font-medium text-emerald-100">{availableCasinoBalance.toFixed(2)} MOMO</span>
+          You will receive: <span className="font-medium text-emerald-100">{expectedEth.toFixed(6)} ETH</span>
         </div>
 
         {error ? (
@@ -128,7 +93,7 @@ export function WithdrawModal({
           </div>
         ) : null}
 
-        {txPhase && txPhase !== "idle" ? (
+        {txPhase && txPhase !== "Idle" ? (
           <div className="rounded-2xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white/60">
             Transaction state: <span className="font-medium text-emerald-100">{txPhase}</span>
             {txHash ? (
@@ -148,7 +113,7 @@ export function WithdrawModal({
           type="submit"
           className="w-full rounded-full border border-emerald-200/25 bg-emerald-300/10 px-5 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/15 hover:text-white"
         >
-          Withdraw
+          Withdraw to MetaMask
         </button>
       </form>
     </MockModal>

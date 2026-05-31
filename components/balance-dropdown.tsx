@@ -8,9 +8,7 @@ type BalanceDropdownProps = {
   onHistoryClick: () => void;
   onWithdrawClick: () => void;
   pendingBets: number;
-  walletMomoBalance: number;
   walletBalance: string;
-  walletSymbol: string;
 };
 
 export function BalanceDropdown({
@@ -23,35 +21,29 @@ export function BalanceDropdown({
   onHistoryClick,
   onWithdrawClick,
   pendingBets,
-  walletMomoBalance,
   walletBalance,
-  walletSymbol,
 }: BalanceDropdownProps) {
   return (
     <div className="space-y-3 text-sm">
       <div className="rounded-xl border border-white/5 bg-white/5 p-3">
-        <p className="text-white/55">Sepolia ETH Balance</p>
+        <p className="text-white/55">ETH</p>
         <p className="mt-1 font-medium text-emerald-100">
           {!isLoggedIn
             ? "Login required"
             : isConnected
               ? isBalanceLoading
-                ? `Loading ${walletSymbol}...`
+                ? "Loading ETH..."
                 : walletBalance
               : "Wallet not connected"}
         </p>
-      </div>
-      <div className="rounded-xl border border-white/5 bg-white/5 p-3">
-        <p className="text-white/55">MOMO Wallet Balance</p>
-        <p className="mt-1 font-medium text-emerald-100">
-          {isLoggedIn ? (hasDeployedContracts ? `${walletMomoBalance.toFixed(4)} MOMO` : "Contract not deployed") : "Login required"}
-        </p>
+        <p className="mt-2 text-xs text-white/45">Sepolia balance from MetaMask</p>
       </div>
       <div className="rounded-xl border border-white/5 bg-white/5 p-3">
         <p className="text-white/55">MOMO Casino Balance</p>
         <p className="mt-1 font-medium text-emerald-100">
           {isLoggedIn ? (hasDeployedContracts ? `${casinoMomoBalance.toFixed(4)} MOMO` : "Contract not deployed") : "Login required"}
         </p>
+        <p className="mt-2 text-xs text-white/45">Internal test casino credit backed by deposited Sepolia ETH.</p>
       </div>
       <div className="rounded-xl border border-white/5 bg-white/5 p-3">
         <p className="text-white/55">Pending Bets</p>

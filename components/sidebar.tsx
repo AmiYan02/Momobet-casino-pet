@@ -41,10 +41,7 @@ export function Sidebar({
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-300/15 bg-black/30 shadow-[0_0_30px_rgba(117,255,143,0.08)]">
             <Coins className="h-5 w-5 text-emerald-200" />
           </div>
-          <div>
-            <p className="text-lg font-semibold tracking-[0.18em] text-white">MomoBet</p>
-            <p className="text-xs uppercase tracking-[0.26em] text-emerald-300/55">Rooted in green</p>
-          </div>
+          <p className="text-lg font-semibold tracking-[0.18em] text-white sm:text-[1.15rem]">MomoBet</p>
         </div>
 
         <nav className="relative z-10 mt-8 flex flex-col gap-3">
