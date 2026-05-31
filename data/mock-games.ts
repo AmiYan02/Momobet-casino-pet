@@ -1,0 +1,207 @@
+export const categories = [
+  "All Games",
+  "Live Casino",
+  "Slots",
+  "Crash",
+  "Table Games",
+  "Mini Games",
+  "New",
+] as const;
+
+export type GameCategory = (typeof categories)[number];
+
+export type GameItem = {
+  title: string;
+  provider: string;
+  type: string;
+  badge?: "Hot" | "New" | "Live" | "Playable";
+  icon: "crash" | "table" | "live" | "mini" | "slots";
+  categories: GameCategory[];
+};
+
+export const mockGames: GameItem[] = [
+  {
+    title: "Momo Dice",
+    provider: "Momo Originals",
+    type: "Precision dice",
+    badge: "Hot",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Fungal Crash",
+    provider: "Ebaka Games",
+    type: "Multiplier crash",
+    badge: "Playable",
+    icon: "crash",
+    categories: ["All Games", "Crash"],
+  },
+  {
+    title: "Green Plinko",
+    provider: "Momo Originals",
+    type: "High-variance drop",
+    badge: "New",
+    icon: "mini",
+    categories: ["All Games", "Mini Games", "New"],
+  },
+  {
+    title: "Neon Roulette",
+    provider: "Evolution",
+    type: "European roulette",
+    badge: "Live",
+    icon: "live",
+    categories: ["All Games", "Live Casino", "Table Games"],
+  },
+  {
+    title: "Shadow Blackjack",
+    provider: "Pragmatic Play",
+    type: "Blackjack table",
+    icon: "table",
+    categories: ["All Games", "Table Games"],
+  },
+  {
+    title: "Spore Slots",
+    provider: "NetEnt",
+    type: "Five-reel slots",
+    badge: "Hot",
+    icon: "slots",
+    categories: ["All Games", "Slots"],
+  },
+  {
+    title: "Mycelium Mines",
+    provider: "Hacksaw",
+    type: "Minefield strategy",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Toxic Tower",
+    provider: "Play'n GO",
+    type: "Vertical climb challenge",
+    badge: "New",
+    icon: "mini",
+    categories: ["All Games", "Mini Games", "New"],
+  },
+  {
+    title: "Jungle Baccarat",
+    provider: "Evolution",
+    type: "Classic baccarat",
+    badge: "Live",
+    icon: "live",
+    categories: ["All Games", "Live Casino", "Table Games"],
+  },
+  {
+    title: "Cyber Roulette",
+    provider: "Pragmatic Play",
+    type: "Immersive roulette",
+    icon: "table",
+    categories: ["All Games", "Table Games"],
+  },
+  {
+    title: "Dark Limbo",
+    provider: "Ebaka Games",
+    type: "Fast limbo mode",
+    icon: "crash",
+    categories: ["All Games", "Crash"],
+  },
+  {
+    title: "Root Runner",
+    provider: "Momo Originals",
+    type: "Endless mini sprint",
+    badge: "New",
+    icon: "mini",
+    categories: ["All Games", "Mini Games", "New"],
+  },
+  {
+    title: "Live Lightning Table",
+    provider: "Evolution",
+    type: "Multiplier live table",
+    badge: "Live",
+    icon: "live",
+    categories: ["All Games", "Live Casino", "Table Games"],
+  },
+  {
+    title: "Momo Wheel",
+    provider: "Momo Originals",
+    type: "Wheel of fortune",
+    badge: "Hot",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Black Forest Slots",
+    provider: "Play'n GO",
+    type: "Dark fantasy slots",
+    icon: "slots",
+    categories: ["All Games", "Slots"],
+  },
+  {
+    title: "Mushroom Rush",
+    provider: "NetEnt",
+    type: "Scatter-rich slots",
+    badge: "New",
+    icon: "slots",
+    categories: ["All Games", "Slots", "New"],
+  },
+  {
+    title: "Green Flame Poker",
+    provider: "Evolution",
+    type: "Three-card poker",
+    badge: "Live",
+    icon: "live",
+    categories: ["All Games", "Live Casino", "Table Games"],
+  },
+  {
+    title: "Nightfall Dice",
+    provider: "Momo Originals",
+    type: "Classic dice duel",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Crypt Keeper Crash",
+    provider: "Hacksaw",
+    type: "Rapid multiplier climb",
+    badge: "Hot",
+    icon: "crash",
+    categories: ["All Games", "Crash"],
+  },
+  {
+    title: "Shadow Mines",
+    provider: "Ebaka Games",
+    type: "Reactive mine grid",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Toxic Plinko",
+    provider: "Momo Originals",
+    type: "Neon peg cascade",
+    badge: "Hot",
+    icon: "mini",
+    categories: ["All Games", "Mini Games"],
+  },
+  {
+    title: "Neon Baccarat",
+    provider: "Pragmatic Play",
+    type: "Speed baccarat",
+    icon: "table",
+    categories: ["All Games", "Table Games"],
+  },
+  {
+    title: "Forest Roulette",
+    provider: "Evolution",
+    type: "VIP roulette room",
+    badge: "Live",
+    icon: "live",
+    categories: ["All Games", "Live Casino", "Table Games"],
+  },
+  {
+    title: "Momo Originals Dice",
+    provider: "Momo Originals",
+    type: "House dice special",
+    badge: "New",
+    icon: "mini",
+    categories: ["All Games", "Mini Games", "New"],
+  },
+];
